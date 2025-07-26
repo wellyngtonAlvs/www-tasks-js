@@ -4,16 +4,78 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
-    <title>Tarefas</title>
+    <title>Gerenciador de Tarefas</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   </head>
   <body>
-    <div id="app" class="list">
-      <h1>Lista de Tarefas</h1>
-      <h3><ul></ul></h3>
-      <input class="input" type="text" placeholder="Digite uma nova tarefa" />
-      <button class="button button-az">Adicionar</button>
+    <div class="container">
+      <header class="header">
+        <h1>📋 Gerenciador de Tarefas</h1>
+        <p class="subtitle">Organize suas atividades de forma simples e eficiente</p>
+      </header>
+
+      <main class="main">
+        <div class="task-form">
+          <div class="input-group">
+            <input 
+              class="task-input" 
+              type="text" 
+              placeholder="Digite uma nova tarefa..." 
+              maxlength="100"
+              id="taskInput"
+            />
+            <button class="btn btn-primary" id="addButton">
+              <span class="btn-text">Adicionar</span>
+              <span class="btn-icon">+</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="task-stats">
+          <div class="stat">
+            <span class="stat-number" id="totalTasks">0</span>
+            <span class="stat-label">Total</span>
+          </div>
+          <div class="stat">
+            <span class="stat-number" id="completedTasks">0</span>
+            <span class="stat-label">Concluídas</span>
+          </div>
+          <div class="stat">
+            <span class="stat-number" id="pendingTasks">0</span>
+            <span class="stat-label">Pendentes</span>
+          </div>
+        </div>
+
+        <div class="task-list-container">
+          <h2>Suas Tarefas</h2>
+          <ul class="task-list" id="taskList">
+            <!-- Tarefas serão inseridas aqui dinamicamente -->
+          </ul>
+          
+          <div class="empty-state" id="emptyState">
+            <div class="empty-icon">📝</div>
+            <p>Nenhuma tarefa ainda!</p>
+            <p>Adicione sua primeira tarefa para começar.</p>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn btn-secondary" id="clearCompleted">
+            Limpar Concluídas
+          </button>
+          <button class="btn btn-danger" id="clearAll">
+            Limpar Todas
+          </button>
+        </div>
+      </main>
     </div>
+
+    <!-- Toast para notificações -->
+    <div class="toast" id="toast"></div>
+
     <script src="funcoes.js"></script>
   </body>
 </html>
