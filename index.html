@@ -14,10 +14,26 @@
     <div class="container">
       <header class="header">
         <h1>📋 Gerenciador de Tarefas</h1>
-        <p class="subtitle">Organize suas atividades de forma simples e eficiente</p>
+        <p class="subtitle">Organize suas atividades por categorias de forma simples e eficiente</p>
       </header>
 
       <main class="main">
+        <!-- Gerenciador de Categorias -->
+        <div class="categories-manager">
+          <div class="categories-header">
+            <h2>🏷️ Categorias</h2>
+            <button class="btn btn-primary" id="addCategoryBtn">
+              <span class="btn-icon">+</span>
+              <span class="btn-text">Nova Categoria</span>
+            </button>
+          </div>
+          
+          <div class="categories-list" id="categoriesList">
+            <!-- Categorias serão inseridas aqui dinamicamente -->
+          </div>
+        </div>
+
+        <!-- Formulário de tarefas -->
         <div class="task-form">
           <div class="input-group">
             <input 
@@ -27,6 +43,10 @@
               maxlength="100"
               id="taskInput"
             />
+            <select class="category-select" id="categorySelect">
+              <option value="">Sem categoria</option>
+              <!-- Opções de categoria serão inseridas aqui -->
+            </select>
             <button class="btn btn-primary" id="addButton">
               <span class="btn-text">Adicionar</span>
               <span class="btn-icon">+</span>
@@ -34,6 +54,38 @@
           </div>
         </div>
 
+        <!-- Filtros -->
+        <div class="filters">
+          <div class="filter-group">
+            <label for="categoryFilter">Filtrar por categoria:</label>
+            <select class="filter-select" id="categoryFilter">
+              <option value="">Todas as categorias</option>
+              <!-- Opções de filtro serão inseridas aqui -->
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label for="statusFilter">Filtrar por status:</label>
+            <select class="filter-select" id="statusFilter">
+              <option value="">Todos os status</option>
+              <option value="pending">Pendentes</option>
+              <option value="completed">Concluídas</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label for="sortFilter">Ordenar por:</label>
+            <select class="filter-select" id="sortFilter">
+              <option value="newest">Mais recentes primeiro</option>
+              <option value="oldest">Mais antigas primeiro</option>
+              <option value="alphabetical">Ordem alfabética</option>
+              <option value="completed">Concluídas primeiro</option>
+              <option value="pending">Pendentes primeiro</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Estatísticas -->
         <div class="task-stats">
           <div class="stat">
             <span class="stat-number" id="totalTasks">0</span>
@@ -47,10 +99,18 @@
             <span class="stat-number" id="pendingTasks">0</span>
             <span class="stat-label">Pendentes</span>
           </div>
+          <div class="stat">
+            <span class="stat-number" id="categoriesCount">0</span>
+            <span class="stat-label">Categorias</span>
+          </div>
         </div>
 
+        <!-- Lista de tarefas -->
         <div class="task-list-container">
-          <h2>Suas Tarefas</h2>
+          <div class="task-list-header">
+            <h2>Suas Tarefas</h2>
+            <span class="task-count" id="taskCount">0 tarefa(s)</span>
+          </div>
           <ul class="task-list" id="taskList">
             <!-- Tarefas serão inseridas aqui dinamicamente -->
           </ul>
@@ -62,6 +122,7 @@
           </div>
         </div>
 
+        <!-- Ações -->
         <div class="actions">
           <button class="btn btn-secondary" id="clearCompleted">
             Limpar Concluídas
@@ -71,6 +132,107 @@
           </button>
         </div>
       </main>
+    </div>
+
+    <!-- Modal para adicionar/editar categoria -->
+    <div class="modal" id="categoryModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="modalTitle">Nova Categoria</h3>
+          <button class="modal-close" id="modalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="categoryName">Nome da categoria:</label>
+            <input 
+              type="text" 
+              id="categoryName" 
+              placeholder="Ex: Trabalho, Pessoal, Estudos..."
+              maxlength="30"
+            >
+          </div>
+          <div class="form-group">
+            <label for="categoryColor">Cor da categoria:</label>
+            <div class="color-picker">
+              <input type="color" id="categoryColor" value="#667eea">
+              <span class="color-preview" id="colorPreview"></span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="modalCancel">Cancelar</button>
+          <button class="btn btn-primary" id="modalSave">Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para editar categoria de tarefa -->
+    <div class="modal" id="editTaskCategoryModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Editar Categoria da Tarefa</h3>
+          <button class="modal-close" id="editTaskCategoryModalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="editTaskCategorySelect">Selecionar categoria:</label>
+            <select id="editTaskCategorySelect" class="form-select">
+              <option value="">Sem categoria</option>
+              <!-- Opções de categoria serão inseridas aqui -->
+            </select>
+          </div>
+          <div class="task-preview">
+            <h4>Tarefa:</h4>
+            <p id="editTaskText">Carregando...</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="editTaskCategoryModalCancel">Cancelar</button>
+          <button class="btn btn-primary" id="editTaskCategoryModalSave">Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal para editar tarefa -->
+    <div class="modal" id="editTaskModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Editar Tarefa</h3>
+          <button class="modal-close" id="editTaskModalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="editTaskTextInput">Texto da tarefa:</label>
+            <input 
+              type="text" 
+              id="editTaskTextInput" 
+              placeholder="Digite o novo texto da tarefa..."
+              maxlength="100"
+            >
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="editTaskModalCancel">Cancelar</button>
+          <button class="btn btn-primary" id="editTaskModalSave">Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de confirmação -->
+    <div class="modal" id="confirmationModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 id="confirmationTitle">Confirmar Ação</h3>
+          <button class="modal-close" id="confirmationModalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p id="confirmationMessage">Tem certeza que deseja realizar esta ação?</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="confirmationModalCancel">Cancelar</button>
+          <button class="btn btn-danger" id="confirmationModalConfirm">Confirmar</button>
+        </div>
+      </div>
     </div>
 
     <!-- Toast para notificações -->
