@@ -7,6 +7,10 @@ const clearAllButton = document.getElementById('clearAll');
 const emptyState = document.getElementById('emptyState');
 const toast = document.getElementById('toast');
 
+// Elementos da notificação de armazenamento
+const storageNotice = document.getElementById('storageNotice');
+const closeStorageNotice = document.getElementById('closeStorageNotice');
+
 // Elementos de categorias
 const categorySelect = document.getElementById('categorySelect');
 const categoriesList = document.getElementById('categoriesList');
@@ -125,6 +129,7 @@ class TaskManager {
     this.updateStats();
     this.setupEventListeners();
     this.saveCategoriesToStorage();
+    this.setupStorageNotice();
   }
 
   setupEventListeners() {
@@ -182,6 +187,9 @@ class TaskManager {
 
     // Foco no input ao carregar
     taskInput.focus();
+    
+    // Event listener para fechar a notificação de armazenamento
+    closeStorageNotice.addEventListener('click', () => this.closeStorageNotice());
   }
 
   addTask() {
@@ -773,6 +781,22 @@ class TaskManager {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  // Métodos para gerenciar a notificação de armazenamento
+  setupStorageNotice() {
+    // Verificar se o usuário já fechou a notificação anteriormente
+    const noticeClosed = localStorage.getItem('storageNoticeClosed');
+    
+    if (noticeClosed === 'true') {
+      storageNotice.classList.add('hidden');
+    }
+  }
+
+  closeStorageNotice() {
+    storageNotice.classList.add('hidden');
+    localStorage.setItem('storageNoticeClosed', 'true');
+    this.showToast('Aviso fechado!', 'info');
   }
 }
 
