@@ -55,6 +55,22 @@ const confirmationModalClose = document.getElementById('confirmationModalClose')
 const confirmationModalCancel = document.getElementById('confirmationModalCancel');
 const confirmationModalConfirm = document.getElementById('confirmationModalConfirm');
 
+// Elementos de backup e restauração
+const exportBackupBtn = document.getElementById('exportBackupBtn');
+const importBackupBtn = document.getElementById('importBackupBtn');
+const restoreAutoBackupBtn = document.getElementById('restoreAutoBackupBtn');
+const backupFileInput = document.getElementById('backupFileInput');
+
+// Elementos do modal de importação
+const importBackupModal = document.getElementById('importBackupModal');
+const importBackupModalClose = document.getElementById('importBackupModalClose');
+const importBackupModalCancel = document.getElementById('importBackupModalCancel');
+const importBackupModalConfirm = document.getElementById('importBackupModalConfirm');
+const backupFileInputModal = document.getElementById('backupFileInputModal');
+const mergeBackupCheckbox = document.getElementById('mergeBackupCheckbox');
+const backupPreview = document.getElementById('backupPreview');
+const backupPreviewContent = document.getElementById('backupPreviewContent');
+
 // Elementos de estatísticas
 const totalTasksElement = document.getElementById('totalTasks');
 const completedTasksElement = document.getElementById('completedTasks');
@@ -130,6 +146,9 @@ class TaskManager {
     this.setupEventListeners();
     this.saveCategoriesToStorage();
     this.setupStorageNotice();
+    
+    // Configurar backup automático
+    this.setupAutoBackup();
   }
 
   setupEventListeners() {
@@ -190,6 +209,17 @@ class TaskManager {
     
     // Event listener para fechar a notificação de armazenamento
     closeStorageNotice.addEventListener('click', () => this.closeStorageNotice());
+
+    // Event listeners para backup e restauração
+    exportBackupBtn.addEventListener('click', () => this.exportBackup());
+    importBackupBtn.addEventListener('click', () => this.openImportModal());
+    restoreAutoBackupBtn.addEventListener('click', () => this.restoreLastAutoBackup());
+    
+    // Event listeners do modal de importação
+    importBackupModalClose.addEventListener('click', () => this.closeImportModal());
+    importBackupModalCancel.addEventListener('click', () => this.closeImportModal());
+    importBackupModalConfirm.addEventListener('click', () => this.confirmImport());
+    backupFileInputModal.addEventListener('change', (e) => this.handleFileSelect(e));
   }
 
   addTask() {
@@ -798,6 +828,501 @@ class TaskManager {
     localStorage.setItem('storageNoticeClosed', 'true');
     this.showToast('Aviso fechado!', 'info');
   }
+
+  // ===== FUNÇÕES DE BACKUP E RESTAURAÇÃO =====
+
+  /**
+   * Cria um backup completo dos dados (tarefas e categorias)
+   * @returns {Object} Objeto com os dados do backup
+   */
+  createBackup() {
+    const backup = {
+      version: '1.0',
+      timestamp: new Date().toISOString(),
+      tasks: this.tasks,
+      categories: this.categories,
+      metadata: {
+        totalTasks: this.tasks.length,
+        completedTasks: this.tasks.filter(t => t.completed).length,
+        totalCategories: this.categories.length,
+        createdWith: 'Gerenciador de Tarefas'
+      }
+    };
+    
+    return backup;
+  }
+
+  /**
+   * Exporta o backup para um arquivo JSON
+   */
+  exportBackup() {
+    try {
+      const backup = this.createBackup();
+      const dataStr = JSON.stringify(backup, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      
+      // Criar nome do arquivo com timestamp
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+      const filename = `backup-tarefas-${timestamp}.json`;
+      
+      // Criar link de download
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(dataBlob);
+      link.download = filename;
+      link.style.display = 'none';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Limpar URL do objeto
+      URL.revokeObjectURL(link.href);
+      
+      this.showToast('Backup exportado com sucesso!', 'success');
+      
+      // Log para debug
+      console.log('Backup exportado:', backup);
+      
+    } catch (error) {
+      console.error('Erro ao exportar backup:', error);
+      this.showToast('Erro ao exportar backup!', 'error');
+    }
+  }
+
+  /**
+   * Valida se um arquivo de backup é válido
+   * @param {Object} backup - Objeto do backup
+   * @returns {Object} Resultado da validação
+   */
+  validateBackup(backup) {
+    const result = {
+      isValid: false,
+      errors: [],
+      warnings: []
+    };
+
+    try {
+      // Verificar estrutura básica
+      if (!backup || typeof backup !== 'object') {
+        result.errors.push('Arquivo de backup inválido');
+        return result;
+      }
+
+      // Verificar versão
+      if (!backup.version) {
+        result.warnings.push('Versão do backup não especificada');
+      }
+
+      // Verificar timestamp
+      if (!backup.timestamp) {
+        result.warnings.push('Timestamp do backup não especificado');
+      }
+
+      // Verificar tarefas
+      if (!Array.isArray(backup.tasks)) {
+        result.errors.push('Dados de tarefas inválidos');
+      } else {
+        // Validar cada tarefa
+        backup.tasks.forEach((task, index) => {
+          if (!task.id || !task.text || typeof task.completed !== 'boolean') {
+            result.errors.push(`Tarefa ${index + 1} tem dados inválidos`);
+          }
+          
+          if (task.text.length > 100) {
+            result.warnings.push(`Tarefa "${task.text.substring(0, 20)}..." excede 100 caracteres`);
+          }
+        });
+      }
+
+      // Verificar categorias
+      if (!Array.isArray(backup.categories)) {
+        result.errors.push('Dados de categorias inválidos');
+      } else {
+        // Validar cada categoria
+        backup.categories.forEach((category, index) => {
+          if (!category.id || !category.name || !category.color) {
+            result.errors.push(`Categoria ${index + 1} tem dados inválidos`);
+          }
+          
+          if (category.name.length > 30) {
+            result.warnings.push(`Categoria "${category.name}" excede 30 caracteres`);
+          }
+        });
+      }
+
+      // Se não há erros, o backup é válido
+      if (result.errors.length === 0) {
+        result.isValid = true;
+      }
+
+    } catch (error) {
+      result.errors.push(`Erro ao validar backup: ${error.message}`);
+    }
+
+    return result;
+  }
+
+  /**
+   * Restaura dados de um backup
+   * @param {Object} backup - Objeto do backup
+   * @param {boolean} merge - Se true, mescla com dados existentes. Se false, substitui completamente
+   */
+  restoreBackup(backup, merge = false) {
+    try {
+      // Validar backup
+      const validation = this.validateBackup(backup);
+      
+      if (!validation.isValid) {
+        const errorMessage = `Backup inválido: ${validation.errors.join(', ')}`;
+        this.showToast(errorMessage, 'error');
+        console.error('Erro de validação:', validation.errors);
+        return false;
+      }
+
+      // Mostrar avisos se houver
+      if (validation.warnings.length > 0) {
+        console.warn('Avisos de validação:', validation.warnings);
+      }
+
+      if (merge) {
+        // Modo mesclagem: adicionar novos dados sem duplicar
+        this.mergeBackupData(backup);
+        this.showToast('Backup mesclado com sucesso!', 'success');
+      } else {
+        // Modo substituição: substituir completamente
+        this.tasks = [...backup.tasks];
+        this.categories = [...backup.categories];
+        this.showToast('Backup restaurado com sucesso!', 'success');
+      }
+
+      // Salvar no localStorage
+      this.saveToStorage();
+      this.saveCategoriesToStorage();
+      
+      // Atualizar interface
+      this.renderTasks();
+      this.renderCategories();
+      this.updateStats();
+      
+      // Log para debug
+      console.log('Backup restaurado:', backup);
+      
+      return true;
+      
+    } catch (error) {
+      console.error('Erro ao restaurar backup:', error);
+      this.showToast('Erro ao restaurar backup!', 'error');
+      return false;
+    }
+  }
+
+  /**
+   * Mescla dados do backup com dados existentes
+   * @param {Object} backup - Objeto do backup
+   */
+  mergeBackupData(backup) {
+    // Mesclar categorias
+    const existingCategoryIds = new Set(this.categories.map(c => c.id));
+    const newCategories = backup.categories.filter(c => !existingCategoryIds.has(c.id));
+    
+    if (newCategories.length > 0) {
+      this.categories.push(...newCategories);
+      this.showToast(`${newCategories.length} nova(s) categoria(s) adicionada(s)`, 'info');
+    }
+
+    // Mesclar tarefas
+    const existingTaskIds = new Set(this.tasks.map(t => t.id));
+    const newTasks = backup.tasks.filter(t => !existingTaskIds.has(t.id));
+    
+    if (newTasks.length > 0) {
+      this.tasks.push(...newTasks);
+      this.showToast(`${newTasks.length} nova(s) tarefa(s) adicionada(s)`, 'info');
+    }
+
+    // Normalizar IDs de categoria nas tarefas
+    this.normalizeTaskCategories();
+  }
+
+  /**
+   * Importa backup de um arquivo
+   * @param {File} file - Arquivo JSON do backup
+   * @param {boolean} merge - Se deve mesclar com dados existentes
+   */
+  importBackupFromFile(file, merge = false) {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const backup = JSON.parse(e.target.result);
+        this.restoreBackup(backup, merge);
+      } catch (error) {
+        console.error('Erro ao ler arquivo:', error);
+        this.showToast('Arquivo de backup inválido!', 'error');
+      }
+    };
+    
+    reader.onerror = () => {
+      this.showToast('Erro ao ler arquivo!', 'error');
+    };
+    
+    reader.readAsText(file);
+  }
+
+  /**
+   * Cria backup automático (para uso interno)
+   */
+  createAutoBackup() {
+    try {
+      const backup = this.createBackup();
+      const autoBackupKey = 'autoBackup_' + new Date().toISOString().slice(0, 10);
+      
+      // Salvar backup automático no localStorage
+      localStorage.setItem(autoBackupKey, JSON.stringify(backup));
+      
+      // Manter apenas os últimos 7 backups automáticos
+      this.cleanupAutoBackups();
+      
+      console.log('Backup automático criado:', autoBackupKey);
+      
+    } catch (error) {
+      console.error('Erro ao criar backup automático:', error);
+    }
+  }
+
+  /**
+   * Remove backups automáticos antigos (mantém apenas os últimos 7 dias)
+   */
+  cleanupAutoBackups() {
+    const keys = Object.keys(localStorage);
+    const autoBackupKeys = keys.filter(key => key.startsWith('autoBackup_'));
+    
+    if (autoBackupKeys.length > 7) {
+      // Ordenar por data e remover os mais antigos
+      autoBackupKeys.sort();
+      const keysToRemove = autoBackupKeys.slice(0, autoBackupKeys.length - 7);
+      
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+        console.log('Backup automático removido:', key);
+      });
+    }
+  }
+
+  /**
+   * Restaura o último backup automático disponível
+   */
+  restoreLastAutoBackup() {
+    const keys = Object.keys(localStorage);
+    const autoBackupKeys = keys.filter(key => key.startsWith('autoBackup_'));
+    
+    if (autoBackupKeys.length === 0) {
+      this.showToast('Nenhum backup automático encontrado!', 'info');
+      return false;
+    }
+    
+    // Pegar o backup mais recente
+    const latestKey = autoBackupKeys.sort().pop();
+    const backupData = localStorage.getItem(latestKey);
+    
+    try {
+      const backup = JSON.parse(backupData);
+      const success = this.restoreBackup(backup, false);
+      
+      if (success) {
+        this.showToast(`Backup automático restaurado (${latestKey})`, 'success');
+      }
+      
+      return success;
+      
+    } catch (error) {
+      console.error('Erro ao restaurar backup automático:', error);
+      this.showToast('Erro ao restaurar backup automático!', 'error');
+      return false;
+    }
+  }
+
+  /**
+   * Lista todos os backups automáticos disponíveis
+   * @returns {Array} Lista de backups automáticos
+   */
+  listAutoBackups() {
+    const keys = Object.keys(localStorage);
+    const autoBackupKeys = keys.filter(key => key.startsWith('autoBackup_'));
+    
+    return autoBackupKeys.map(key => {
+      try {
+        const backupData = localStorage.getItem(key);
+        const backup = JSON.parse(backupData);
+        return {
+          key: key,
+          date: key.replace('autoBackup_', ''),
+          timestamp: backup.timestamp,
+          totalTasks: backup.metadata?.totalTasks || 0,
+          totalCategories: backup.metadata?.totalCategories || 0
+        };
+      } catch (error) {
+        return {
+          key: key,
+          date: key.replace('autoBackup_', ''),
+          error: 'Erro ao ler backup'
+        };
+      }
+    }).sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  // ===== MÉTODOS DO MODAL DE IMPORTAÇÃO =====
+
+  /**
+   * Abre o modal de importação
+   */
+  openImportModal() {
+    importBackupModal.classList.add('show');
+    backupFileInputModal.value = '';
+    backupPreview.style.display = 'none';
+    importBackupModalConfirm.disabled = true;
+    mergeBackupCheckbox.checked = false;
+  }
+
+  /**
+   * Fecha o modal de importação
+   */
+  closeImportModal() {
+    importBackupModal.classList.remove('show');
+    backupFileInputModal.value = '';
+    backupPreview.style.display = 'none';
+    importBackupModalConfirm.disabled = true;
+  }
+
+  /**
+   * Manipula a seleção de arquivo
+   * @param {Event} event - Evento de mudança do input file
+   */
+  handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) {
+      backupPreview.style.display = 'none';
+      importBackupModalConfirm.disabled = true;
+      return;
+    }
+
+    // Verificar se é um arquivo JSON
+    if (!file.name.endsWith('.json')) {
+      this.showToast('Por favor, selecione um arquivo JSON válido!', 'error');
+      backupFileInputModal.value = '';
+      backupPreview.style.display = 'none';
+      importBackupModalConfirm.disabled = true;
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const backup = JSON.parse(e.target.result);
+        this.showBackupPreview(backup);
+        importBackupModalConfirm.disabled = false;
+      } catch (error) {
+        this.showToast('Arquivo JSON inválido!', 'error');
+        backupFileInputModal.value = '';
+        backupPreview.style.display = 'none';
+        importBackupModalConfirm.disabled = true;
+      }
+    };
+    
+    reader.onerror = () => {
+      this.showToast('Erro ao ler arquivo!', 'error');
+      backupFileInputModal.value = '';
+      backupPreview.style.display = 'none';
+      importBackupModalConfirm.disabled = true;
+    };
+    
+    reader.readAsText(file);
+  }
+
+  /**
+   * Mostra preview do backup selecionado
+   * @param {Object} backup - Objeto do backup
+   */
+  showBackupPreview(backup) {
+    const validation = this.validateBackup(backup);
+    
+    let previewHtml = `
+      <div class="backup-info">
+        <div class="backup-info-item">
+          <span class="backup-info-label">Versão:</span>
+          <span class="backup-info-value">${backup.version || 'Não especificada'}</span>
+        </div>
+        <div class="backup-info-item">
+          <span class="backup-info-label">Data:</span>
+          <span class="backup-info-value">${backup.timestamp ? new Date(backup.timestamp).toLocaleString('pt-BR') : 'Não especificada'}</span>
+        </div>
+        <div class="backup-info-item">
+          <span class="backup-info-label">Tarefas:</span>
+          <span class="backup-info-value">${backup.tasks?.length || 0}</span>
+        </div>
+        <div class="backup-info-item">
+          <span class="backup-info-label">Categorias:</span>
+          <span class="backup-info-value">${backup.categories?.length || 0}</span>
+        </div>
+      </div>
+    `;
+
+    if (validation.errors.length > 0) {
+      previewHtml += `
+        <div style="color: #dc3545; margin-top: 1rem;">
+          <strong>Erros encontrados:</strong>
+          <ul style="margin-top: 0.5rem; padding-left: 1rem;">
+            ${validation.errors.map(error => `<li>${error}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    if (validation.warnings.length > 0) {
+      previewHtml += `
+        <div style="color: #ffc107; margin-top: 1rem;">
+          <strong>Avisos:</strong>
+          <ul style="margin-top: 0.5rem; padding-left: 1rem;">
+            ${validation.warnings.map(warning => `<li>${warning}</li>`).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    backupPreviewContent.innerHTML = previewHtml;
+    backupPreview.style.display = 'block';
+  }
+
+  /**
+   * Confirma a importação do backup
+   */
+  confirmImport() {
+    const file = backupFileInputModal.files[0];
+    if (!file) {
+      this.showToast('Por favor, selecione um arquivo!', 'error');
+      return;
+    }
+
+    const merge = mergeBackupCheckbox.checked;
+    this.importBackupFromFile(file, merge);
+    this.closeImportModal();
+  }
+
+  /**
+   * Configurar backup automático
+   */
+  setupAutoBackup() {
+    // Criar backup automático a cada 24 horas
+    setInterval(() => {
+      this.createAutoBackup();
+    }, 24 * 60 * 60 * 1000); // 24 horas em milissegundos
+    
+    // Criar backup automático quando a página for fechada
+    window.addEventListener('beforeunload', () => {
+      this.createAutoBackup();
+    });
+    
+    console.log('Backup automático configurado');
+  }
 }
 
 // Inicializar o gerenciador de tarefas
@@ -828,6 +1353,13 @@ editTaskModal.addEventListener('click', (e) => {
 confirmationModal.addEventListener('click', (e) => {
   if (e.target === confirmationModal) {
     taskManager.closeConfirmationModal();
+  }
+});
+
+// Fechar modal de importação ao clicar fora dele
+importBackupModal.addEventListener('click', (e) => {
+  if (e.target === importBackupModal) {
+    taskManager.closeImportModal();
   }
 });
 

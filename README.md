@@ -1,93 +1,133 @@
 # 📋 Gerenciador de Tarefas
 
-Uma aplicação web moderna e responsiva para gerenciar suas tarefas diárias por categorias de forma simples e eficiente.
+Um aplicativo web simples e eficiente para gerenciar suas tarefas diárias, organizadas por categorias.
 
 ## ✨ Funcionalidades
 
-- ✅ **Adicionar tarefas** com timestamp automático
-- ✅ **Categorização completa** com cores personalizadas
-- ✅ **Gerenciamento de categorias** (criar, editar, excluir)
-- ✅ **Editar categoria de tarefas** existentes
-- ✅ **Editar tarefas** com modal interativo
-- ✅ **Filtros avançados** por categoria e status
-- ✅ **Marcar como concluída** com checkbox interativo
-- ✅ **Excluir tarefas** com confirmação modal
-- ✅ **Estatísticas em tempo real** (total, concluídas, pendentes, categorias)
-- ✅ **Persistência local** usando localStorage
-- ✅ **Interface responsiva** para desktop e mobile
-- ✅ **Notificações toast** para feedback do usuário
+### 📝 Gerenciamento de Tarefas
+- ✅ Adicionar, editar e excluir tarefas
+- ✅ Marcar tarefas como concluídas
+- ✅ Organizar tarefas por categorias
+- ✅ Filtros por categoria e status
+- ✅ Ordenação por data, alfabética e status
+- ✅ Estatísticas em tempo real
 
-## 🚀 Como usar
+### 🏷️ Sistema de Categorias
+- ✅ Criar e editar categorias personalizadas
+- ✅ Cores personalizadas para cada categoria
+- ✅ Associar tarefas a categorias
+- ✅ Editar categoria de tarefas existentes
 
-### Instalação
+### 💾 Backup e Restauração
+- ✅ **Exportar Backup**: Salvar todos os dados em arquivo JSON
+- ✅ **Importar Backup**: Restaurar dados de arquivo JSON
+- ✅ **Backup Automático**: Criação automática de backups diários
+- ✅ **Restaurar Auto-Backup**: Recuperar último backup automático
+- ✅ **Modo Mesclagem**: Importar dados sem substituir existentes
+- ✅ **Validação de Dados**: Verificação de integridade dos backups
+- ✅ **Preview de Backup**: Visualizar conteúdo antes de importar
 
-1. Clone ou baixe este repositório
-2. Abra o arquivo `index.html` em seu navegador
-3. Comece a organizar suas tarefas por categorias!
+## 🚀 Como Usar
 
-### Uso básico
+### Backup Manual
+1. Clique no botão **"Exportar Backup"** para baixar um arquivo JSON
+2. O arquivo será salvo com timestamp no nome: `backup-tarefas-YYYY-MM-DD-HH-MM-SS.json`
 
-1. **Gerenciar categorias**: Clique em "Nova Categoria" para criar categorias personalizadas
-2. **Adicionar tarefa**: Digite no campo de texto, selecione uma categoria e pressione Enter
-3. **Editar categoria de tarefa**: Clique no ícone 🏷️ ao lado da tarefa
-4. **Editar tarefa**: Clique no botão "Editar" da tarefa desejada
-5. **Filtrar tarefas**: Use os filtros por categoria e status para encontrar tarefas específicas
-6. **Marcar como concluída**: Clique no checkbox ao lado da tarefa
-7. **Excluir tarefa**: Clique no botão "Excluir" e confirme no modal
-8. **Limpar tarefas**: Use os botões "Limpar Concluídas" ou "Limpar Todas" com confirmação
+### Restauração Manual
+1. Clique no botão **"Importar Backup"**
+2. Selecione um arquivo JSON de backup
+3. Escolha se deseja mesclar ou substituir dados existentes
+4. Confirme a importação
 
-## 🛠️ Tecnologias utilizadas
+### Backup Automático
+- O sistema cria backups automáticos a cada 24 horas
+- Backups automáticos são salvos no localStorage do navegador
+- Os últimos 7 backups automáticos são mantidos
+- Use **"Restaurar Auto-Backup"** para recuperar o mais recente
 
-- **HTML5**: Estrutura semântica e acessível
-- **CSS3**: Design moderno com Flexbox, Grid e animações
-- **JavaScript ES6+**: Programação orientada a objetos e funcionalidades avançadas
-- **LocalStorage**: Persistência de dados no navegador
-- **Google Fonts**: Tipografia Inter para melhor legibilidade
+## 📁 Estrutura do Backup
+
+O arquivo de backup contém:
+```json
+{
+  "version": "1.0",
+  "timestamp": "2024-01-01T12:00:00.000Z",
+  "tasks": [...],
+  "categories": [...],
+  "metadata": {
+    "totalTasks": 10,
+    "completedTasks": 5,
+    "totalCategories": 3,
+    "createdWith": "Gerenciador de Tarefas"
+  }
+}
+```
+
+## 🛡️ Segurança e Validação
+
+- **Validação de Estrutura**: Verifica se o arquivo tem formato correto
+- **Validação de Dados**: Confirma integridade de tarefas e categorias
+- **Avisos**: Alerta sobre possíveis problemas nos dados
+- **Modo Seguro**: Permite mesclar dados sem perder informações existentes
+
+## 🎨 Interface
+
+- Design responsivo e moderno
+- Animações suaves
+- Notificações toast para feedback
+- Modais de confirmação para ações importantes
+- Preview de backup antes da importação
+
+## 💻 Tecnologias
+
+- HTML5
+- CSS3 (com Flexbox e Grid)
+- JavaScript (ES6+)
+- LocalStorage para persistência
+- File API para importação/exportação
 
 ## 📱 Responsividade
 
-A aplicação é totalmente responsiva e funciona perfeitamente em:
+O aplicativo é totalmente responsivo e funciona bem em:
+- Desktop
+- Tablet
+- Smartphone
 
-- 📱 Smartphones (320px+)
-- 📱 Tablets (768px+)
-- 💻 Desktops (1024px+)
-- 🖥️ Telas grandes (1200px+)
+## 🔧 Instalação
 
-## 📊 Estrutura do projeto
+1. Clone ou baixe os arquivos
+2. Abra `index.html` em um navegador moderno
+3. Ou use um servidor local:
+   ```bash
+   python3 -m http.server 8000
+   # ou
+   npx serve .
+   ```
 
-```
-www-tasks-js/
-├── index.html          # Estrutura HTML principal
-├── style.css           # Estilos CSS modernos
-├── funcoes.js          # Lógica JavaScript
-├── README.md           # Documentação do projeto
-└── LICENSE             # Licença MIT
-```
+## 📊 Armazenamento
 
-## 🔧 Funcionalidades técnicas
+- **LocalStorage**: Dados salvos no navegador do usuário
+- **Backup Automático**: Mantém últimos 7 backups diários
+- **Exportação**: Arquivos JSON para backup externo
+- **Importação**: Restauração de dados de arquivos JSON
 
-### Gerenciamento de estado
-- Classe `TaskManager` para organização do código
-- Estrutura de dados consistente para tarefas e categorias
-- Persistência automática no localStorage
-- Sistema de filtros em tempo real
+## 🚨 Limitações
 
-### Categorização
-- Categorias com cores personalizadas
-- Validação de nomes únicos
-- Integração completa com tarefas
-- Gerenciamento seguro (confirmação ao excluir categorias em uso)
+- Dados salvos apenas no navegador local
+- Não há sincronização entre dispositivos
+- Backup automático limitado a 7 dias
+- Tamanho máximo de tarefa: 100 caracteres
+- Tamanho máximo de categoria: 30 caracteres
 
-### Validação e segurança
-- Validação de entrada com limite de 100 caracteres para tarefas
-- Limite de 30 caracteres para nomes de categorias
-- Escape de HTML para prevenir XSS
-- Confirmações para ações destrutivas
+## 🔄 Atualizações Futuras
 
-## 📄 Licença
-
-Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalhes.
+- [ ] Sincronização em nuvem
+- [ ] Compartilhamento de tarefas
+- [ ] Lembretes e notificações
+- [ ] Temas personalizáveis
+- [ ] Exportação em outros formatos (CSV, PDF)
+- [ ] Backup em nuvem automático
 
 ---
 
-**⭐ Se este projeto te ajudou, considere dar uma estrela!** 
+Desenvolvido com ❤️ para organização pessoal e produtividade. 

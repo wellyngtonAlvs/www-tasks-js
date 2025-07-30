@@ -143,6 +143,28 @@
             Limpar Todas
           </button>
         </div>
+
+        <!-- Seção de Backup e Restauração -->
+        <div class="backup-section">
+          <h2>💾 Backup e Restauração</h2>
+          <div class="backup-actions">
+            <button class="btn btn-primary" id="exportBackupBtn">
+              <span class="btn-icon">📤</span>
+              <span class="btn-text">Exportar Backup</span>
+            </button>
+            <button class="btn btn-secondary" id="importBackupBtn">
+              <span class="btn-icon">📥</span>
+              <span class="btn-text">Importar Backup</span>
+            </button>
+            <button class="btn btn-info" id="restoreAutoBackupBtn">
+              <span class="btn-icon">🔄</span>
+              <span class="btn-text">Restaurar Auto-Backup</span>
+            </button>
+          </div>
+          
+          <!-- Input file oculto para importação -->
+          <input type="file" id="backupFileInput" accept=".json" style="display: none;">
+        </div>
       </main>
     </div>
 
@@ -243,6 +265,36 @@
         <div class="modal-footer">
           <button class="btn btn-secondary" id="confirmationModalCancel">Cancelar</button>
           <button class="btn btn-danger" id="confirmationModalConfirm">Confirmar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de importação de backup -->
+    <div class="modal" id="importBackupModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Importar Backup</h3>
+          <button class="modal-close" id="importBackupModalClose">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="backupFileInputModal">Selecionar arquivo de backup:</label>
+            <input type="file" id="backupFileInputModal" accept=".json" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="mergeBackupCheckbox">
+              Mesclar com dados existentes (não substituir)
+            </label>
+          </div>
+          <div id="backupPreview" class="backup-preview" style="display: none;">
+            <h4>Preview do Backup:</h4>
+            <div id="backupPreviewContent"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="importBackupModalCancel">Cancelar</button>
+          <button class="btn btn-primary" id="importBackupModalConfirm" disabled>Importar</button>
         </div>
       </div>
     </div>

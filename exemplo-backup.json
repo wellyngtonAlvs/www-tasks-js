@@ -1,0 +1,69 @@
+{
+  "version": "1.0",
+  "timestamp": "2024-01-15T10:30:00.000Z",
+  "tasks": [
+    {
+      "id": 1705312200000,
+      "text": "Revisar código do projeto",
+      "categoryId": 1,
+      "completed": false,
+      "createdAt": "2024-01-15T08:00:00.000Z",
+      "completedAt": null
+    },
+    {
+      "id": 1705312260000,
+      "text": "Fazer exercícios físicos",
+      "categoryId": 2,
+      "completed": true,
+      "createdAt": "2024-01-15T07:30:00.000Z",
+      "completedAt": "2024-01-15T09:15:00.000Z"
+    },
+    {
+      "id": 1705312320000,
+      "text": "Estudar JavaScript avançado",
+      "categoryId": 3,
+      "completed": false,
+      "createdAt": "2024-01-15T07:00:00.000Z",
+      "completedAt": null
+    },
+    {
+      "id": 1705312380000,
+      "text": "Preparar apresentação para reunião",
+      "categoryId": 1,
+      "completed": false,
+      "createdAt": "2024-01-15T06:30:00.000Z",
+      "completedAt": null
+    },
+    {
+      "id": 1705312440000,
+      "text": "Ler livro sobre produtividade",
+      "categoryId": 2,
+      "completed": false,
+      "createdAt": "2024-01-15T06:00:00.000Z",
+      "completedAt": null
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "Trabalho",
+      "color": "#667eea"
+    },
+    {
+      "id": 2,
+      "name": "Pessoal",
+      "color": "#28a745"
+    },
+    {
+      "id": 3,
+      "name": "Estudos",
+      "color": "#ffc107"
+    }
+  ],
+  "metadata": {
+    "totalTasks": 5,
+    "completedTasks": 1,
+    "totalCategories": 3,
+    "createdWith": "Gerenciador de Tarefas"
+  }
+} 
