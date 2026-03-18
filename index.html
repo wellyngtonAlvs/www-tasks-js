@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'; img-src 'self' data:;" />
     <title>Gerenciador de Tarefas</title>
     
     <!-- Favicon -->
@@ -36,7 +37,7 @@
           <h3>Armazenamento Local</h3>
           <p>Seus dados são salvos no seu próprio navegador usando localStorage. Se você limpar os dados do navegador ou usar outro navegador, suas tarefas não serão sincronizadas.</p>
         </div>
-        <button class="notice-close" id="closeStorageNotice" title="Fechar aviso">
+        <button class="notice-close" id="closeStorageNotice" aria-label="Fechar aviso" title="Fechar aviso">
           <span>&times;</span>
         </button>
       </div>
@@ -46,7 +47,7 @@
         <div class="categories-manager">
           <div class="categories-header">
             <h2>🏷️ Categorias</h2>
-            <button class="btn btn-primary" id="addCategoryBtn">
+            <button class="btn btn-primary" id="addCategoryBtn" aria-label="Adicionar nova categoria">
               <span class="btn-icon">+</span>
               <span class="btn-text">Nova Categoria</span>
             </button>
@@ -71,7 +72,7 @@
               <option value="">Sem categoria</option>
               <!-- Opções de categoria serão inseridas aqui -->
             </select>
-            <button class="btn btn-primary" id="addButton">
+            <button class="btn btn-primary" id="addButton" aria-label="Adicionar tarefa">
               <span class="btn-text">Adicionar</span>
               <span class="btn-icon">+</span>
             </button>
@@ -80,6 +81,16 @@
 
         <!-- Filtros -->
         <div class="filters">
+          <div class="filter-group search-group">
+            <label for="searchInput">Buscar tarefas:</label>
+            <input 
+              type="text" 
+              id="searchInput" 
+              class="filter-input" 
+              placeholder="Digite para buscar..."
+            >
+          </div>
+          
           <div class="filter-group">
             <label for="categoryFilter">Filtrar por categoria:</label>
             <select class="filter-select" id="categoryFilter">
@@ -135,7 +146,7 @@
             <h2>Suas Tarefas</h2>
             <span class="task-count" id="taskCount">0 tarefa(s)</span>
           </div>
-          <ul class="task-list" id="taskList">
+          <ul class="task-list" id="taskList" role="list" aria-label="Lista de tarefas">
             <!-- Tarefas serão inseridas aqui dinamicamente -->
           </ul>
           
@@ -148,10 +159,10 @@
 
         <!-- Ações -->
         <div class="actions">
-          <button class="btn btn-secondary" id="clearCompleted">
+          <button class="btn btn-secondary" id="clearCompleted" aria-label="Limpar tarefas concluídas">
             Limpar Concluídas
           </button>
-          <button class="btn btn-danger" id="clearAll">
+          <button class="btn btn-danger" id="clearAll" aria-label="Limpar todas as tarefas">
             Limpar Todas
           </button>
         </div>
@@ -160,15 +171,15 @@
         <div class="backup-section">
           <h2>💾 Backup e Restauração</h2>
           <div class="backup-actions">
-            <button class="btn btn-primary" id="exportBackupBtn">
+            <button class="btn btn-primary" id="exportBackupBtn" aria-label="Exportar backup">
               <span class="btn-icon">📤</span>
               <span class="btn-text">Exportar Backup</span>
             </button>
-            <button class="btn btn-secondary" id="importBackupBtn">
+            <button class="btn btn-secondary" id="importBackupBtn" aria-label="Importar backup">
               <span class="btn-icon">📥</span>
               <span class="btn-text">Importar Backup</span>
             </button>
-            <button class="btn btn-info" id="restoreAutoBackupBtn">
+            <button class="btn btn-info" id="restoreAutoBackupBtn" aria-label="Restaurar backup automático">
               <span class="btn-icon">🔄</span>
               <span class="btn-text">Restaurar Auto-Backup</span>
             </button>
@@ -185,7 +196,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3 id="modalTitle">Nova Categoria</h3>
-          <button class="modal-close" id="modalClose">&times;</button>
+          <button class="modal-close" id="modalClose" aria-label="Fechar modal">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -217,7 +228,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3>Editar Categoria da Tarefa</h3>
-          <button class="modal-close" id="editTaskCategoryModalClose">&times;</button>
+          <button class="modal-close" id="editTaskCategoryModalClose" aria-label="Fechar modal">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -244,7 +255,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3>Editar Tarefa</h3>
-          <button class="modal-close" id="editTaskModalClose">&times;</button>
+          <button class="modal-close" id="editTaskModalClose" aria-label="Fechar modal">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
@@ -269,7 +280,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3 id="confirmationTitle">Confirmar Ação</h3>
-          <button class="modal-close" id="confirmationModalClose">&times;</button>
+          <button class="modal-close" id="confirmationModalClose" aria-label="Fechar modal">&times;</button>
         </div>
         <div class="modal-body">
           <p id="confirmationMessage">Tem certeza que deseja realizar esta ação?</p>
@@ -286,7 +297,7 @@
       <div class="modal-content">
         <div class="modal-header">
           <h3>Importar Backup</h3>
-          <button class="modal-close" id="importBackupModalClose">&times;</button>
+          <button class="modal-close" id="importBackupModalClose" aria-label="Fechar modal">&times;</button>
         </div>
         <div class="modal-body">
           <div class="form-group">

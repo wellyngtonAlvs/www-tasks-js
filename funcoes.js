@@ -1,3 +1,31 @@
+// Constantes
+const STORAGE_KEYS = Object.freeze({
+  TASKS: 'tasks',
+  CATEGORIES: 'categories',
+  STORAGE_NOTICE_CLOSED: 'storageNoticeClosed',
+  AUTO_BACKUP_PREFIX: 'autoBackup_'
+});
+
+const CONFIG = Object.freeze({
+  MAX_TASK_LENGTH: 100,
+  MAX_CATEGORY_LENGTH: 30,
+  MAX_FILE_SIZE: 5 * 1024 * 1024,
+  MAX_TASKS: 10000,
+  MAX_CATEGORIES: 500,
+  AUTO_BACKUP_DAYS: 7,
+  AUTO_BACKUP_INTERVAL: 24 * 60 * 60 * 1000,
+  DEBOUNCE_DELAY: 300,
+  TOAST_DURATION: 3000,
+  BACKUP_VERSION: '1.0',
+  APP_NAME: 'Gerenciador de Tarefas'
+});
+
+const DEFAULT_CATEGORIES = Object.freeze([
+  { id: 1, name: 'Trabalho', color: '#667eea' },
+  { id: 2, name: 'Pessoal', color: '#28a745' },
+  { id: 3, name: 'Estudos', color: '#ffc107' }
+]);
+
 // Elementos do DOM
 const taskList = document.getElementById('taskList');
 const taskInput = document.getElementById('taskInput');
@@ -6,6 +34,19 @@ const clearCompletedButton = document.getElementById('clearCompleted');
 const clearAllButton = document.getElementById('clearAll');
 const emptyState = document.getElementById('emptyState');
 const toast = document.getElementById('toast');
+
+// Função debounce
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 
 // Elementos da notificação de armazenamento
 const storageNotice = document.getElementById('storageNotice');
@@ -21,6 +62,7 @@ const categoriesCountElement = document.getElementById('categoriesCount');
 const categoryFilter = document.getElementById('categoryFilter');
 const statusFilter = document.getElementById('statusFilter');
 const sortFilter = document.getElementById('sortFilter');
+const searchInput = document.getElementById('searchInput');
 
 // Elementos do modal
 const categoryModal = document.getElementById('categoryModal');
@@ -78,30 +120,15 @@ const pendingTasksElement = document.getElementById('pendingTasks');
 const taskCountElement = document.getElementById('taskCount');
 
 // Estrutura de dados
-let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
-let categories = JSON.parse(localStorage.getItem('categories')) || [
-  {
-    id: 1,
-    name: 'Trabalho',
-    color: '#667eea'
-  },
-  {
-    id: 2,
-    name: 'Pessoal',
-    color: '#28a745'
-  },
-  {
-    id: 3,
-    name: 'Estudos',
-    color: '#ffc107'
-  }
-];
+let tasks = JSON.parse(localStorage.getItem(STORAGE_KEYS.TASKS)) || [];
+let categories = JSON.parse(localStorage.getItem(STORAGE_KEYS.CATEGORIES)) || [...DEFAULT_CATEGORIES];
 
 // Filtros ativos
 let activeFilters = {
   category: '',
   status: '',
-  sort: 'newest'
+  sort: 'newest',
+  search: ''
 };
 
 // Estado do modal
@@ -128,8 +155,14 @@ let confirmationState = {
   data: null
 };
 
-// Classe para gerenciar tarefas
+/**
+ * Classe principal para gerenciar tarefas e categorias
+ * @class
+ */
 class TaskManager {
+  /**
+   * @constructor
+   */
   constructor() {
     this.tasks = tasks;
     this.categories = categories;
@@ -154,9 +187,6 @@ class TaskManager {
   setupEventListeners() {
     // Adicionar tarefa
     addButton.addEventListener('click', () => this.addTask());
-    taskInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.addTask();
-    });
 
     // Limpar tarefas
     clearCompletedButton.addEventListener('click', () => this.clearCompleted());
@@ -180,6 +210,17 @@ class TaskManager {
       activeFilters.sort = e.target.value;
       this.renderTasks();
     });
+
+    const debouncedSearch = debounce((value) => {
+      activeFilters.search = value.toLowerCase().trim();
+      this.renderTasks();
+    }, CONFIG.DEBOUNCE_DELAY);
+
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        debouncedSearch(e.target.value);
+      });
+    }
 
     // Modal
     modalClose.addEventListener('click', () => this.closeCategoryModal());
@@ -222,6 +263,10 @@ class TaskManager {
     backupFileInputModal.addEventListener('change', (e) => this.handleFileSelect(e));
   }
 
+  /**
+   * Adiciona uma nova tarefa
+   * @returns {void}
+   */
   addTask() {
     const text = taskInput.value.trim();
     const categoryId = categorySelect.value;
@@ -232,7 +277,7 @@ class TaskManager {
       return;
     }
 
-    if (text.length > 100) {
+    if (text.length > CONFIG.MAX_TASK_LENGTH) {
       this.showToast('A tarefa deve ter no máximo 100 caracteres!', 'error');
       return;
     }
@@ -368,8 +413,13 @@ class TaskManager {
       return;
     }
 
-    if (name.length > 30) {
+    if (name.length > CONFIG.MAX_CATEGORY_LENGTH) {
       this.showToast('O nome da categoria deve ter no máximo 30 caracteres!', 'error');
+      return;
+    }
+
+    if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+      this.showToast('Cor inválida! Use um código hexadecimal válido (ex: #FF5733)', 'error');
       return;
     }
 
@@ -436,38 +486,59 @@ class TaskManager {
   }
 
   renderCategories() {
-    // Renderizar lista de categorias
+    const safeColor = (color) => this.sanitizeColor(color);
     categoriesList.innerHTML = this.categories.map(category => `
-      <div class="category-tag" style="background-color: ${category.color}">
-        <div class="category-color" style="background-color: ${category.color}"></div>
+      <div class="category-tag" style="background-color: ${safeColor(category.color)}">
+        <div class="category-color" style="background-color: ${safeColor(category.color)}"></div>
         <span>${this.escapeHtml(category.name)}</span>
         <div class="category-actions">
-          <button class="category-action" onclick="taskManager.openCategoryModal(${category.id})" title="Editar">
+          <button class="category-action" data-action="editCategory" data-id="${category.id}" title="Editar">
             ✏️
           </button>
-          <button class="category-action" onclick="taskManager.deleteCategory(${category.id})" title="Excluir">
+          <button class="category-action" data-action="deleteCategory" data-id="${category.id}" title="Excluir">
             🗑️
           </button>
         </div>
       </div>
     `).join('');
+    
+    this.attachCategoryEventListeners();
 
-    // Atualizar opções dos selects
     const categoryOptions = this.categories.map(category => 
       `<option value="${category.id}">${this.escapeHtml(category.name)}</option>`
     ).join('');
 
     categorySelect.innerHTML = '<option value="">Sem categoria</option>' + categoryOptions;
     categoryFilter.innerHTML = '<option value="">Todas as categorias</option><option value="none">Sem categoria</option>' + categoryOptions;
-    
-    // Debug: verificar se as opções foram criadas corretamente
-    console.log('Opções de categoria criadas:', categoryOptions);
-    console.log('Categorias disponíveis:', this.categories.map(c => ({ id: c.id, name: c.name })));
+  }
+  
+  attachCategoryEventListeners() {
+    categoriesList.querySelectorAll('.category-action').forEach(button => {
+      button.addEventListener('click', (e) => {
+        const action = e.target.dataset.action;
+        const id = parseInt(e.target.dataset.id);
+        
+        if (action === 'editCategory') {
+          this.openCategoryModal(id);
+        } else if (action === 'deleteCategory') {
+          this.deleteCategory(id);
+        }
+      });
+    });
   }
 
+  /**
+   * Renderiza a lista de tarefas aplicando filtros e ordenação
+   * @returns {void}
+   */
   renderTasks() {
-    // Filtrar tarefas
-    let filteredTasks = [...this.tasks]; // Criar cópia para não modificar o array original
+    let filteredTasks = [...this.tasks];
+
+    if (activeFilters.search) {
+      filteredTasks = filteredTasks.filter(task => 
+        task.text.toLowerCase().includes(activeFilters.search)
+      );
+    }
 
     // Filtro por categoria
     if (activeFilters.category && activeFilters.category !== '') {
@@ -521,7 +592,11 @@ class TaskManager {
     }
 
     // Atualizar contador de tarefas filtradas
-    taskCountElement.textContent = `${filteredTasks.length} tarefa${filteredTasks.length !== 1 ? 's' : ''}`;
+    if (activeFilters.search) {
+      taskCountElement.textContent = `${filteredTasks.length} de ${this.tasks.length} tarefa${this.tasks.length !== 1 ? 's' : ''}`;
+    } else {
+      taskCountElement.textContent = `${filteredTasks.length} tarefa${filteredTasks.length !== 1 ? 's' : ''}`;
+    }
 
     if (filteredTasks.length === 0) {
       taskList.innerHTML = '';
@@ -531,6 +606,7 @@ class TaskManager {
 
     emptyState.style.display = 'none';
     
+    const safeColor = (color) => this.sanitizeColor(color);
     taskList.innerHTML = filteredTasks.map(task => {
       const category = task.categoryId ? this.categories.find(c => c.id === task.categoryId) : null;
       
@@ -540,7 +616,8 @@ class TaskManager {
             type="checkbox" 
             class="task-checkbox" 
             ${task.completed ? 'checked' : ''}
-            onchange="taskManager.toggleTask(${task.id})"
+            data-action="toggle"
+            data-id="${task.id}"
           >
           <div class="task-content">
             <span class="task-text">${this.escapeHtml(task.text)}</span>
@@ -550,26 +627,59 @@ class TaskManager {
                 ${task.completedAt ? ` | Concluída: ${this.formatDate(task.completedAt)}` : ''}
               </span>
               ${category ? `
-                <span class="task-category" style="background-color: ${category.color}">
+                <span class="task-category" style="background-color: ${safeColor(category.color)}">
                   ${this.escapeHtml(category.name)}
                 </span>
               ` : ''}
             </div>
           </div>
           <div class="task-actions">
-            <button class="btn-task btn-category" onclick="taskManager.editTaskCategory(${task.id})" title="Editar categoria">
+            <button class="btn-task btn-category" data-action="editCategory" data-id="${task.id}" title="Editar categoria">
               🏷️
             </button>
-            <button class="btn-task btn-edit" onclick="taskManager.editTask(${task.id})">
+            <button class="btn-task btn-edit" data-action="edit" data-id="${task.id}">
               Editar
             </button>
-            <button class="btn-task btn-delete" onclick="taskManager.deleteTask(${task.id})">
+            <button class="btn-task btn-delete" data-action="delete" data-id="${task.id}">
               Excluir
             </button>
           </div>
         </li>
       `;
     }).join('');
+    
+    this.attachTaskEventListeners();
+  }
+  
+  attachTaskEventListeners() {
+    taskList.querySelectorAll('.task-checkbox').forEach(checkbox => {
+      checkbox.addEventListener('change', (e) => {
+        const id = parseInt(e.target.dataset.id);
+        this.toggleTask(id);
+      });
+    });
+    
+    taskList.querySelectorAll('.btn-task').forEach(button => {
+      button.addEventListener('click', (e) => {
+        const action = e.target.dataset.action;
+        const id = parseInt(e.target.dataset.id);
+        
+        switch(action) {
+          case 'toggle':
+            this.toggleTask(id);
+            break;
+          case 'edit':
+            this.editTask(id);
+            break;
+          case 'delete':
+            this.deleteTask(id);
+            break;
+          case 'editCategory':
+            this.editTaskCategory(id);
+            break;
+        }
+      });
+    });
   }
 
   updateStats() {
@@ -588,12 +698,16 @@ class TaskManager {
     clearAllButton.style.display = total > 0 ? 'inline-flex' : 'none';
   }
 
+  /**
+   * Salva as tarefas no localStorage
+   * @returns {void}
+   */
   saveToStorage() {
-    localStorage.setItem('tasks', JSON.stringify(this.tasks));
+    localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(this.tasks));
   }
 
   saveCategoriesToStorage() {
-    localStorage.setItem('categories', JSON.stringify(this.categories));
+    localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(this.categories));
   }
 
   normalizeTaskCategories() {
@@ -686,7 +800,7 @@ class TaskManager {
       return;
     }
 
-    if (newText.length > 100) {
+    if (newText.length > CONFIG.MAX_TASK_LENGTH) {
       this.showToast('A tarefa deve ter no máximo 100 caracteres!', 'error');
       return;
     }
@@ -775,6 +889,12 @@ class TaskManager {
     this.showToast('Categoria removida!', 'info');
   }
 
+  /**
+   * Exibe uma notificação toast
+   * @param {string} message - Mensagem a ser exibida
+   * @param {string} [type='info'] - Tipo de notificação: 'success', 'error', 'info'
+   * @returns {void}
+   */
   showToast(message, type = 'info') {
     toast.textContent = message;
     toast.className = `toast ${type}`;
@@ -782,7 +902,7 @@ class TaskManager {
 
     setTimeout(() => {
       toast.classList.remove('show');
-    }, 3000);
+    }, CONFIG.TOAST_DURATION);
   }
 
   formatDate(dateString) {
@@ -813,10 +933,18 @@ class TaskManager {
     return div.innerHTML;
   }
 
+  isValidHexColor(color) {
+    return /^#[0-9A-Fa-f]{6}$/.test(color);
+  }
+
+  sanitizeColor(color, defaultColor = '#667eea') {
+    return this.isValidHexColor(color) ? color : defaultColor;
+  }
+
   // Métodos para gerenciar a notificação de armazenamento
   setupStorageNotice() {
     // Verificar se o usuário já fechou a notificação anteriormente
-    const noticeClosed = localStorage.getItem('storageNoticeClosed');
+    const noticeClosed = localStorage.getItem(STORAGE_KEYS.STORAGE_NOTICE_CLOSED);
     
     if (noticeClosed === 'true') {
       storageNotice.classList.add('hidden');
@@ -825,7 +953,7 @@ class TaskManager {
 
   closeStorageNotice() {
     storageNotice.classList.add('hidden');
-    localStorage.setItem('storageNoticeClosed', 'true');
+    localStorage.setItem(STORAGE_KEYS.STORAGE_NOTICE_CLOSED, 'true');
     this.showToast('Aviso fechado!', 'info');
   }
 
@@ -837,7 +965,7 @@ class TaskManager {
    */
   createBackup() {
     const backup = {
-      version: '1.0',
+      version: CONFIG.BACKUP_VERSION,
       timestamp: new Date().toISOString(),
       tasks: this.tasks,
       categories: this.categories,
@@ -845,7 +973,7 @@ class TaskManager {
         totalTasks: this.tasks.length,
         completedTasks: this.tasks.filter(t => t.completed).length,
         totalCategories: this.categories.length,
-        createdWith: 'Gerenciador de Tarefas'
+        createdWith: CONFIG.APP_NAME
       }
     };
     
@@ -854,6 +982,7 @@ class TaskManager {
 
   /**
    * Exporta o backup para um arquivo JSON
+   * @returns {void}
    */
   exportBackup() {
     try {
@@ -880,9 +1009,6 @@ class TaskManager {
       
       this.showToast('Backup exportado com sucesso!', 'success');
       
-      // Log para debug
-      console.log('Backup exportado:', backup);
-      
     } catch (error) {
       console.error('Erro ao exportar backup:', error);
       this.showToast('Erro ao exportar backup!', 'error');
@@ -892,9 +1018,10 @@ class TaskManager {
   /**
    * Valida se um arquivo de backup é válido
    * @param {Object} backup - Objeto do backup
+   * @param {number} [fileSize=0] - Tamanho do arquivo em bytes
    * @returns {Object} Resultado da validação
    */
-  validateBackup(backup) {
+  validateBackup(backup, fileSize = 0) {
     const result = {
       isValid: false,
       errors: [],
@@ -902,55 +1029,64 @@ class TaskManager {
     };
 
     try {
-      // Verificar estrutura básica
       if (!backup || typeof backup !== 'object') {
         result.errors.push('Arquivo de backup inválido');
         return result;
       }
 
-      // Verificar versão
+      if (fileSize > CONFIG.MAX_FILE_SIZE) {
+        result.errors.push(`Arquivo muito grande (máximo 5MB). Tamanho atual: ${(fileSize / 1024 / 1024).toFixed(2)}MB`);
+        return result;
+      }
+
       if (!backup.version) {
         result.warnings.push('Versão do backup não especificada');
       }
 
-      // Verificar timestamp
       if (!backup.timestamp) {
         result.warnings.push('Timestamp do backup não especificado');
       }
 
-      // Verificar tarefas
       if (!Array.isArray(backup.tasks)) {
         result.errors.push('Dados de tarefas inválidos');
       } else {
-        // Validar cada tarefa
-        backup.tasks.forEach((task, index) => {
-          if (!task.id || !task.text || typeof task.completed !== 'boolean') {
-            result.errors.push(`Tarefa ${index + 1} tem dados inválidos`);
-          }
-          
-          if (task.text.length > 100) {
-            result.warnings.push(`Tarefa "${task.text.substring(0, 20)}..." excede 100 caracteres`);
-          }
-        });
+        if (backup.tasks.length > CONFIG.MAX_TASKS) {
+          result.errors.push(`Número excessivo de tarefas (máximo ${CONFIG.MAX_TASKS})`);
+        } else {
+          backup.tasks.forEach((task, index) => {
+            if (!task.id || !task.text || typeof task.completed !== 'boolean') {
+              result.errors.push(`Tarefa ${index + 1} tem dados inválidos`);
+            }
+            
+            if (task.text && task.text.length > CONFIG.MAX_TASK_LENGTH) {
+              result.warnings.push(`Tarefa "${String(task.text).substring(0, 20)}..." excede ${CONFIG.MAX_TASK_LENGTH} caracteres`);
+            }
+          });
+        }
       }
 
-      // Verificar categorias
       if (!Array.isArray(backup.categories)) {
         result.errors.push('Dados de categorias inválidos');
       } else {
-        // Validar cada categoria
-        backup.categories.forEach((category, index) => {
-          if (!category.id || !category.name || !category.color) {
-            result.errors.push(`Categoria ${index + 1} tem dados inválidos`);
-          }
-          
-          if (category.name.length > 30) {
-            result.warnings.push(`Categoria "${category.name}" excede 30 caracteres`);
-          }
-        });
+        if (backup.categories.length > CONFIG.MAX_CATEGORIES) {
+          result.errors.push(`Número excessivo de categorias (máximo ${CONFIG.MAX_CATEGORIES})`);
+        } else {
+          backup.categories.forEach((category, index) => {
+            if (!category.id || !category.name || !category.color) {
+              result.errors.push(`Categoria ${index + 1} tem dados inválidos`);
+            }
+            
+            if (category.name && category.name.length > CONFIG.MAX_CATEGORY_LENGTH) {
+              result.warnings.push(`Categoria "${String(category.name)}" excede ${CONFIG.MAX_CATEGORY_LENGTH} caracteres`);
+            }
+            
+            if (category.color && !this.isValidHexColor(category.color)) {
+              result.warnings.push(`Categoria "${String(category.name)}" tem cor inválida`);
+            }
+          });
+        }
       }
 
-      // Se não há erros, o backup é válido
       if (result.errors.length === 0) {
         result.isValid = true;
       }
@@ -966,32 +1102,26 @@ class TaskManager {
    * Restaura dados de um backup
    * @param {Object} backup - Objeto do backup
    * @param {boolean} merge - Se true, mescla com dados existentes. Se false, substitui completamente
+   * @param {number} fileSize - Tamanho do arquivo em bytes
    */
-  restoreBackup(backup, merge = false) {
+  restoreBackup(backup, merge = false, fileSize = 0) {
     try {
-      // Validar backup
-      const validation = this.validateBackup(backup);
+      const validation = this.validateBackup(backup, fileSize);
       
       if (!validation.isValid) {
         const errorMessage = `Backup inválido: ${validation.errors.join(', ')}`;
         this.showToast(errorMessage, 'error');
-        console.error('Erro de validação:', validation.errors);
         return false;
       }
 
-      // Mostrar avisos se houver
-      if (validation.warnings.length > 0) {
-        console.warn('Avisos de validação:', validation.warnings);
-      }
-
+      const sanitizedBackup = this.sanitizeBackupData(backup);
+      
       if (merge) {
-        // Modo mesclagem: adicionar novos dados sem duplicar
         this.mergeBackupData(backup);
         this.showToast('Backup mesclado com sucesso!', 'success');
       } else {
-        // Modo substituição: substituir completamente
-        this.tasks = [...backup.tasks];
-        this.categories = [...backup.categories];
+        this.tasks = [...sanitizedBackup.tasks];
+        this.categories = [...sanitizedBackup.categories];
         this.showToast('Backup restaurado com sucesso!', 'success');
       }
 
@@ -1003,9 +1133,6 @@ class TaskManager {
       this.renderTasks();
       this.renderCategories();
       this.updateStats();
-      
-      // Log para debug
-      console.log('Backup restaurado:', backup);
       
       return true;
       
@@ -1021,26 +1148,61 @@ class TaskManager {
    * @param {Object} backup - Objeto do backup
    */
   mergeBackupData(backup) {
-    // Mesclar categorias
+    const sanitizedBackup = this.sanitizeBackupData(backup);
+    
     const existingCategoryIds = new Set(this.categories.map(c => c.id));
-    const newCategories = backup.categories.filter(c => !existingCategoryIds.has(c.id));
+    const newCategories = sanitizedBackup.categories.filter(c => !existingCategoryIds.has(c.id));
     
     if (newCategories.length > 0) {
       this.categories.push(...newCategories);
       this.showToast(`${newCategories.length} nova(s) categoria(s) adicionada(s)`, 'info');
     }
 
-    // Mesclar tarefas
     const existingTaskIds = new Set(this.tasks.map(t => t.id));
-    const newTasks = backup.tasks.filter(t => !existingTaskIds.has(t.id));
+    const newTasks = sanitizedBackup.tasks.filter(t => !existingTaskIds.has(t.id));
     
     if (newTasks.length > 0) {
       this.tasks.push(...newTasks);
       this.showToast(`${newTasks.length} nova(s) tarefa(s) adicionada(s)`, 'info');
     }
 
-    // Normalizar IDs de categoria nas tarefas
     this.normalizeTaskCategories();
+  }
+
+  /**
+   * Sanitiza dados do backup para evitar XSS e dados maliciosos
+   * @param {Object} backup - Objeto do backup
+   * @returns {Object} Backup sanitizado
+   */
+  sanitizeBackupData(backup) {
+    const sanitized = {
+      version: String(backup.version || '').slice(0, 20),
+      timestamp: String(backup.timestamp || '').slice(0, 50),
+      tasks: [],
+      categories: [],
+      metadata: backup.metadata || {}
+    };
+
+    if (Array.isArray(backup.tasks)) {
+      sanitized.tasks = backup.tasks.slice(0, CONFIG.MAX_TASKS).map(task => ({
+        id: typeof task.id === 'number' ? task.id : Date.now(),
+        text: String(task.text || '').slice(0, CONFIG.MAX_TASK_LENGTH),
+        categoryId: task.categoryId != null ? parseInt(task.categoryId) || null : null,
+        completed: Boolean(task.completed),
+        createdAt: task.createdAt ? String(task.createdAt).slice(0, 50) : new Date().toISOString(),
+        completedAt: task.completedAt ? String(task.completedAt).slice(0, 50) : null
+      }));
+    }
+
+    if (Array.isArray(backup.categories)) {
+      sanitized.categories = backup.categories.slice(0, CONFIG.MAX_CATEGORIES).map(category => ({
+        id: typeof category.id === 'number' ? category.id : Date.now(),
+        name: String(category.name || '').slice(0, CONFIG.MAX_CATEGORY_LENGTH),
+        color: this.sanitizeColor(category.color, '#667eea')
+      }));
+    }
+
+    return sanitized;
   }
 
   /**
@@ -1049,12 +1211,13 @@ class TaskManager {
    * @param {boolean} merge - Se deve mesclar com dados existentes
    */
   importBackupFromFile(file, merge = false) {
+    const fileSize = file.size;
     const reader = new FileReader();
     
     reader.onload = (e) => {
       try {
         const backup = JSON.parse(e.target.result);
-        this.restoreBackup(backup, merge);
+        this.restoreBackup(backup, merge, fileSize);
       } catch (error) {
         console.error('Erro ao ler arquivo:', error);
         this.showToast('Arquivo de backup inválido!', 'error');
@@ -1074,15 +1237,11 @@ class TaskManager {
   createAutoBackup() {
     try {
       const backup = this.createBackup();
-      const autoBackupKey = 'autoBackup_' + new Date().toISOString().slice(0, 10);
+      const autoBackupKey = STORAGE_KEYS.AUTO_BACKUP_PREFIX + new Date().toISOString().slice(0, 10);
       
-      // Salvar backup automático no localStorage
       localStorage.setItem(autoBackupKey, JSON.stringify(backup));
       
-      // Manter apenas os últimos 7 backups automáticos
       this.cleanupAutoBackups();
-      
-      console.log('Backup automático criado:', autoBackupKey);
       
     } catch (error) {
       console.error('Erro ao criar backup automático:', error);
@@ -1094,16 +1253,15 @@ class TaskManager {
    */
   cleanupAutoBackups() {
     const keys = Object.keys(localStorage);
-    const autoBackupKeys = keys.filter(key => key.startsWith('autoBackup_'));
+    const autoBackupKeys = keys.filter(key => key.startsWith(STORAGE_KEYS.AUTO_BACKUP_PREFIX));
     
-    if (autoBackupKeys.length > 7) {
+    if (autoBackupKeys.length > CONFIG.AUTO_BACKUP_DAYS) {
       // Ordenar por data e remover os mais antigos
       autoBackupKeys.sort();
-      const keysToRemove = autoBackupKeys.slice(0, autoBackupKeys.length - 7);
+      const keysToRemove = autoBackupKeys.slice(0, autoBackupKeys.length - CONFIG.AUTO_BACKUP_DAYS);
       
       keysToRemove.forEach(key => {
         localStorage.removeItem(key);
-        console.log('Backup automático removido:', key);
       });
     }
   }
@@ -1113,7 +1271,7 @@ class TaskManager {
    */
   restoreLastAutoBackup() {
     const keys = Object.keys(localStorage);
-    const autoBackupKeys = keys.filter(key => key.startsWith('autoBackup_'));
+    const autoBackupKeys = keys.filter(key => key.startsWith(STORAGE_KEYS.AUTO_BACKUP_PREFIX));
     
     if (autoBackupKeys.length === 0) {
       this.showToast('Nenhum backup automático encontrado!', 'info');
@@ -1147,7 +1305,7 @@ class TaskManager {
    */
   listAutoBackups() {
     const keys = Object.keys(localStorage);
-    const autoBackupKeys = keys.filter(key => key.startsWith('autoBackup_'));
+    const autoBackupKeys = keys.filter(key => key.startsWith(STORAGE_KEYS.AUTO_BACKUP_PREFIX));
     
     return autoBackupKeys.map(key => {
       try {
@@ -1155,7 +1313,7 @@ class TaskManager {
         const backup = JSON.parse(backupData);
         return {
           key: key,
-          date: key.replace('autoBackup_', ''),
+          date: key.replace(STORAGE_KEYS.AUTO_BACKUP_PREFIX, ''),
           timestamp: backup.timestamp,
           totalTasks: backup.metadata?.totalTasks || 0,
           totalCategories: backup.metadata?.totalCategories || 0
@@ -1163,7 +1321,7 @@ class TaskManager {
       } catch (error) {
         return {
           key: key,
-          date: key.replace('autoBackup_', ''),
+          date: key.replace(STORAGE_KEYS.AUTO_BACKUP_PREFIX, ''),
           error: 'Erro ao ler backup'
         };
       }
@@ -1205,7 +1363,6 @@ class TaskManager {
       return;
     }
 
-    // Verificar se é um arquivo JSON
     if (!file.name.endsWith('.json')) {
       this.showToast('Por favor, selecione um arquivo JSON válido!', 'error');
       backupFileInputModal.value = '';
@@ -1214,11 +1371,12 @@ class TaskManager {
       return;
     }
 
+    const fileSize = file.size;
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const backup = JSON.parse(e.target.result);
-        this.showBackupPreview(backup);
+        this.showBackupPreview(backup, fileSize);
         importBackupModalConfirm.disabled = false;
       } catch (error) {
         this.showToast('Arquivo JSON inválido!', 'error');
@@ -1241,9 +1399,10 @@ class TaskManager {
   /**
    * Mostra preview do backup selecionado
    * @param {Object} backup - Objeto do backup
+   * @param {number} fileSize - Tamanho do arquivo em bytes
    */
-  showBackupPreview(backup) {
-    const validation = this.validateBackup(backup);
+  showBackupPreview(backup, fileSize = 0) {
+    const validation = this.validateBackup(backup, fileSize);
     
     let previewHtml = `
       <div class="backup-info">
@@ -1311,22 +1470,19 @@ class TaskManager {
    * Configurar backup automático
    */
   setupAutoBackup() {
-    // Criar backup automático a cada 24 horas
     setInterval(() => {
       this.createAutoBackup();
-    }, 24 * 60 * 60 * 1000); // 24 horas em milissegundos
+    }, CONFIG.AUTO_BACKUP_INTERVAL);
     
-    // Criar backup automático quando a página for fechada
     window.addEventListener('beforeunload', () => {
       this.createAutoBackup();
     });
-    
-    console.log('Backup automático configurado');
   }
 }
 
 // Inicializar o gerenciador de tarefas
 const taskManager = new TaskManager();
+window.taskManager = taskManager;
 
 // Fechar modal ao clicar fora dele
 categoryModal.addEventListener('click', (e) => {
@@ -1371,3 +1527,36 @@ function addTarefa() {
 function delTarefa(id) {
   taskManager.deleteTask(id);
 }
+
+// Atalhos de teclado
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if (categoryModal.classList.contains('show')) {
+      taskManager.closeCategoryModal();
+    } else if (editTaskCategoryModal.classList.contains('show')) {
+      taskManager.closeEditTaskCategoryModal();
+    } else if (editTaskModal.classList.contains('show')) {
+      taskManager.closeEditTaskModal();
+    } else if (confirmationModal.classList.contains('show')) {
+      taskManager.closeConfirmationModal();
+    } else if (importBackupModal.classList.contains('show')) {
+      taskManager.closeImportModal();
+    }
+  }
+  
+  if (e.key === 'Enter' && e.target.tagName === 'INPUT' && !e.target.matches('textarea')) {
+    const taskInput = document.getElementById('taskInput');
+    if (taskInput === e.target && taskInput.value.trim()) {
+      taskManager.addTask();
+    }
+  }
+});
+
+// Tratamento de erros global
+window.addEventListener('error', (event) => {
+  console.error('Erro não tratado:', event.error);
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Promise rejeitada não tratada:', event.reason);
+});
